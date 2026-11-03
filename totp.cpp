@@ -73,8 +73,6 @@ int base32_decode(const char* encoded, uint8_t* result, int bufSize) {
     return count;
 }
 
-// ================= 业务函数实现 =================
-
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_pjy_totp_TotpManager_generateTotp(JNIEnv* env, jobject, jlong timestamp) {
     const char* base32Secret = "BTOAJGWWVLBS5SOSS53U7637YGGKPVHP";
@@ -96,31 +94,4 @@ Java_com_pjy_totp_TotpManager_generateTotp(JNIEnv* env, jobject, jlong timestamp
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_pjy_totp_TotpManager_calcExpireTime(JNIEnv* env, jobject, jlong networkTime) {
     return networkTime + 604800000L;
-}
-
-// ================= 🌟 主动注册 JNI 方法 (解决 Android 14+ 找不到实现的问题) =================
-
-static const JNINativeMethod gMethods[] = {
-    {"generateTotp", "(J)Ljava/lang/String;", (void*)Java_com_pjy_totp_TotpManager_generateTotp},
-    {"calcExpireTime", "(J)J", (void*)Java_com_pjy_totp_TotpManager_calcExpireTime}
-};
-
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
-    JNIEnv* env = nullptr;
-    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-        return JNI_ERR;
-    }
-    
-    // 查找你的 Java 类
-    jclass clazz = env->FindClass("com/pjy/totp/TotpManager");
-    if (clazz == nullptr) {
-        return JNI_ERR;
-    }
-    
-    // 强制将 C++ 函数注册给 Java 类
-    if (env->RegisterNatives(clazz, gMethods, sizeof(gMethods) / sizeof(gMethods[0])) < 0) {
-        return JNI_ERR;
-    }
-    
-    return JNI_VERSION_1_6;
 }
