@@ -5,26 +5,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-
-    - name: Setup NDK Path
-      run: echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
-
-    - name: Compile C++ to .so
-      run: |
-        mkdir -p output
-        $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++ \
-          -shared -fPIC -static-libstdc++ \
-          -o output/libtotp-lib.so totp.cpp
         
     - name: Compile Java to .dex
       run: |
-        mkdir -p classes
+        mkdir -p classes output
         javac -d classes TotpManager.java
         $ANDROID_HOME/build-tools/34.0.0/d8 --output output/ classes/com/pjy/totp/TotpManager.class
         mv output/classes.dex output/totp.dex
@@ -33,6 +22,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Totp-Build-Result
-        path: |
-          output/libtotp-lib.so
-          output/totp.dex
+        path: output/totp.dex
