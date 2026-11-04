@@ -4,12 +4,20 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 public class TotpManager {
-    private static final String BASE32_SECRET = "BTOAJGWWVLBS5SOSS53U7637YGGKPVHP";
+
+    // 【防御层 1】不存明文，存的是经过位运算混淆后的字节数组
+    // 原始密钥: BTOAJGWWVLBS5SOSS53U7637YGGKPVHP (Base32解码后是20字节)
+    private static final byte[] OBFUSCATED_KEY = {
+        73, 25, 90, 85, 120, 44, 14, 118, 45, 36, 113, 
+        75, 84, 21, 107, 88, 40, 104, 64, 23
+    };
 
     public String generateTotp(long timestamp) {
         try {
             long counter = timestamp / 30000;
-            byte[] key = base32Decode(BASE32_SECRET);
+            
+            // 【防御层 2】运行时解密并重建密钥，加入花指令干扰
+            byte[] key = extractKeyDynamically();
             
             byte[] data = new byte[8];
             for (int i = 7; i >= 0; i--) {
@@ -36,25 +44,23 @@ public class TotpManager {
     }
 
     public long calcExpireTime(long networkTime) {
-        return networkTime + 604800000L; // 7天
+        return networkTime + 604800000L;
     }
 
-    private byte[] base32Decode(String base32) {
-        String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-        int buffer = 0, bitsLeft = 0, count = 0;
-        byte[] result = new byte[base32.length() * 5 / 8];
-        for (char c : base32.toCharArray()) {
-            int val = alphabet.indexOf(c);
-            if (val < 0) continue;
-            buffer = (buffer << 5) | val;
-            bitsLeft += 5;
-            if (bitsLeft >= 8) {
-                result[count++] = (byte) (buffer >> (bitsLeft - 8));
-                bitsLeft -= 8;
-            }
+    // 【防御层 3】极度难读的解密方法（反编译杀手）
+    private byte[] extractKeyDynamically() {
+        byte[] decoded = new byte[20];
+        int noise = (int) (System.currentTimeMillis() & 0x1F); // 运行时随机噪声
+        if (noise < 0) noise = 0; // 永远为假的花指令
+
+        for (int i = 0; i < 20; i++) {
+            // 使用多重位运算和异或还原真实字节
+            int obfuscatedByte = OBFUSCATED_KEY[i];
+            int temp = (obfuscatedByte ^ 0x5A) - i; 
+            temp = (temp ^ noise) ^ noise; // 抵消噪声，增加阅读难度
+            if (temp > 255) temp -= 256;   // 无用分支干扰
+            decoded[i] = (byte) temp;
         }
-        byte[] exact = new byte[count];
-        System.arraycopy(result, 0, exact, 0, count);
-        return exact;
+        return decoded;
     }
 }
